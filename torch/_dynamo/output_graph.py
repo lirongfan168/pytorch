@@ -112,6 +112,7 @@ graph_code_log = torch._logging.getArtifactLogger(__name__, "graph_code")
 graph_sizes_log = torch._logging.getArtifactLogger(__name__, "graph_sizes")
 trace_call_log = torch._logging.getArtifactLogger(__name__, "trace_call")
 
+torch_log = logging.getLogger("torch")
 
 @dataclass(frozen=True)
 class VariableTrackerCacheKey:

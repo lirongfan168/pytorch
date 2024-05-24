@@ -897,8 +897,9 @@ Either create the tensor outside the compiled region, or do not set the tensor t
         except NotImplementedError as e:
             unimplemented(f"Parameter not python_constant: {e}")
 
+        from torch.distributed._tensor import DTensor
         placeholder = tx.output.synthetic_graph_input(
-            new_parameter_placeholder, [shape, dtype, device, requires_grad]
+            new_parameter_placeholder, [shape, dtype, device, requires_grad, isinstance(data.as_proxy(), DTensor)]
         )
         if data.requires_grad:
             data = data.call_method(tx, "detach", [], {})
