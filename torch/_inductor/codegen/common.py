@@ -361,6 +361,10 @@ class ExprPrinter(Printer):
             return string
         return f"({string})"
 
+    def _print_ToFloat(self, expr):
+        assert len(expr.args) == 1
+        return f"float({self._print(expr.args[0])})"
+
     def _print_Infinity(self, expr):
         return "math.inf"
 
@@ -379,8 +383,21 @@ class ExprPrinter(Printer):
     def _print_Mod(self, expr):
         return " % ".join(map(self.paren, map(self._print, expr.args)))
 
+    def _print_PythonMod(self, expr):
+        return " % ".join(map(self.paren, map(self._print, expr.args)))
+
     def _print_FloorDiv(self, expr):
         raise NotImplementedError(f"_print_FloorDiv not implemented for {type(self)}")
+
+    def _print_IntTrueDiv(self, expr):
+        lhs, rhs = expr.args
+        # WARNING: it's unlikely that Triton is going to codegen this
+        # correctly when lhs > 2**53
+        return f"{self._print(lhs)}   /   {self._print(rhs)}"
+
+    def _print_FloatTrueDiv(self, expr):
+        lhs, rhs = expr.args
+        return f"{self._print(lhs)} / {self._print(rhs)}"
 
     def _print_CleanDiv(self, expr):
         return self._print_FloorDiv(expr)
@@ -444,7 +461,11 @@ class PythonPrinter(ExprPrinter):
         assert len(expr.args) == 1
         return f"math.floor({self._print(expr.args[0])})"
 
-    def _print_Trunc(self, expr):
+    def _print_IntTrueDiv(self, expr):
+        lhs, rhs = expr.args
+        return f"{self._print(lhs)} / {self._print(rhs)}"
+
+    def _print_TruncToInt(self, expr):
         assert len(expr.args) == 1
         return f"math.trunc({self._print(expr.args[0])})"
 
@@ -572,6 +593,17 @@ class OpOverrides:
             ops.ne(ops.signbit(r), ops.signbit(b)),
         )
         return ops.where(cond, ops.add(r, b), r)
+
+    @staticmethod
+    def to_int(a):
+        return ops.to_dtype(ops.trunc(a), torch.int64)
+
+    @staticmethod
+    def int_truediv(a, b):
+        # TODO: this is wrong
+        # TODO: an easy bandaid is to generate runtime asserts that it's
+        # <= 2**53, which is when this equation is correct
+        return ops.truediv(a, b)
 
     @staticmethod
     def load_seed(name, offset):
