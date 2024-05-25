@@ -960,11 +960,14 @@ class CUDAGraphNode:
                 self.static_input_data_ptrs[i]
                 for i in self.non_managed_static_input_idxs
             ]
-            for t, data_ptr in zip(static_tensors, data_ptrs):
-                torch._check(
-                    t.data_ptr() == data_ptr,
-                    lambda: f"static input data pointer changed from {data_ptr} to {t.data_ptr()}",
-                )
+            error_msg = "static input data pointer changed.\n"
+            for i, (t, data_ptr) in enumerate(zip(static_tensors, data_ptrs)):
+                index = self.non_managed_static_input_idxs[i]
+                if t.data_ptr() != data_ptr:
+                    error_msg += f"input name: {self.wrapped_function.placeholders[index]}. data pointer changed from {data_ptr} to {t.data_ptr()}\n"
+            error_msg += f"related graph: {self.wrapped_function.placeholders[0].graph}\n"
+            error_msg += f"related stack traces:{self.stack_traces}\n"
+            torch._check(False, lambda: error_msg)
 
     def run_first_inputs(self, new_inputs):
         if config.triton.fast_path_cudagraph_asserts:
