@@ -1115,6 +1115,12 @@ class ForeachKernelSchedulerNode(FusedSchedulerNode):
                 for l, r in zip(producer.snodes, consumer.snodes)
             )
         elif consumer.is_foreach():
+            if producer.is_reduction():
+                why(
+                    "candidate producer is a reduction, foreach ops cannot be fused with reductions currently"
+                )
+                return False
+
             consumer = typing.cast(ForeachKernelSchedulerNode, consumer)
             consumer_subnode = consumer.get_consumer_subnode_for(producer)
             if consumer_subnode is not None:
@@ -1124,6 +1130,12 @@ class ForeachKernelSchedulerNode(FusedSchedulerNode):
             return False
 
         elif producer.is_foreach():
+            if consumer.is_reduction():
+                why(
+                    "candidate consumer is a reduction, foreach ops cannot be fused with reductions currently"
+                )
+                return False
+
             producer = typing.cast(ForeachKernelSchedulerNode, producer)
             producer_subnode = producer.get_producer_subnode_for(consumer)
             if producer_subnode is not None:
@@ -2488,7 +2500,7 @@ class Scheduler:
         if len(possible_fusions) == 0:
             return possible_fusions
         possible_fusions_group_by_priority: Dict[
-            int, List[Tuple["BaseSchedulerNode", "BaseSchedulerNode"]]
+            int, List[Tuple[BaseSchedulerNode, BaseSchedulerNode]]
         ] = {}
 
         for node1, node2 in possible_fusions:
